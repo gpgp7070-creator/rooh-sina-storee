@@ -5,6 +5,9 @@ import Link from "next/link"
 import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { PushNotifications } from '@capacitor/push-notifications';
+import { useRouter } from "next/navigation"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "@/lib/firebase" // اتأكد إن مسار الـ auth صح
 import {
   Package,
   TrendingUp,
@@ -93,11 +96,9 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [isMounted, setIsMounted] = useState(false)
   
-  // المتغيرات المطلوبة للتحكم بالصوت والإشعارات
   const [isSoundEnabled, setIsSoundEnabled] = useState(true)
   const isFirstLoad = useRef(true)
 
-  // دالة تشغيل صوت التنبيه الإلكتروني (Beep Beep)
   const playNotificationSound = () => {
     if (!isSoundEnabled) return;
     try {
@@ -116,20 +117,18 @@ export default function Dashboard() {
         osc.stop(time + duration);
       };
 
-      playTone(audioCtx.currentTime, 587.33, 0.15); // النغمة الأولى
-      playTone(audioCtx.currentTime + 0.2, 880, 0.25); // النغمة الثانية الأعلى
+      playTone(audioCtx.currentTime, 587.33, 0.15);
+      playTone(audioCtx.currentTime + 0.2, 880, 0.25);
     } catch (e) {
       console.error("خطأ أثناء تشغيل الصوت:", e);
     }
   };
 
-  // 1. تم دمج كود الـ Capacitor داخل الـ useEffect الأول لتجهيز الإشعارات عند فتح التطبيق
   useEffect(() => {
     setIsMounted(true);
 
     const setupPushNotifications = async () => {
       try {
-        // التحقق من الإذن وطلبه من الهاتف
         let permStatus = await PushNotifications.checkPermissions();
         
         if (permStatus.receive === 'prompt') {
@@ -141,21 +140,16 @@ export default function Dashboard() {
           return;
         }
 
-        // التسجيل في خدمة الـ Push
         await PushNotifications.register();
 
-        // 👈 الكود الجديد هنا: تشغيل الصوت وإظهار رسالة التنبيه (Alert) معاً والتطبيق مفتوح
         await PushNotifications.addListener('pushNotificationReceived', (notification) => {
           console.log('وصل إشعار جديد في الأندرويد: ', notification);
           
-          // 1. تشغيل الصوت
           playNotificationSound(); 
 
-          // 2. إظهار المسدج المنبثقة على الشاشة فوراً
           alert(`🔔 طلب جديد! \n${notification.title}: ${notification.body}`);
         });
 
-        // مستمع الضغط على الإشعار والتطبيق مقفول
         await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
           console.log('المستخدم ضغط على الإشعار:', notification);
         });
@@ -165,13 +159,11 @@ export default function Dashboard() {
       }
     };
 
-    // حماية للتأكد أن الكود يعمل داخل الموبايل عبر Capacitor وليس المتصفح العادي
     if (typeof window !== 'undefined' && (window as any).Capacitor) {
       setupPushNotifications();
     }
   }, [isSoundEnabled]);
 
-  // 2. كود الـ Real-time Firestore subscription كما هو بدون أي تغيير
   useEffect(() => {
     if (!isLive) return
 
@@ -197,7 +189,6 @@ export default function Dashboard() {
           }
         })
         
-        // إذا جاء أوردر جديد (مستند مضاف للـ Firestore) والموقع شغال، شغل الصوت
         if (!isFirstLoad.current && snapshot.docChanges().some(change => change.type === "added")) {
           playNotificationSound();
         }
@@ -212,7 +203,6 @@ export default function Dashboard() {
         setIsLoading(false)
       }
     )
-
     return () => unsubscribe()
   }, [isLive, isSoundEnabled])
 
