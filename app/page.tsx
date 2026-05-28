@@ -89,6 +89,8 @@ const navItems = [
 ]
 
 export default function Dashboard() {
+  const [loading, setLoading] = useState(true)
+const router = useRouter()
   const [orders, setOrders] = useState<Order[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLive, setIsLive] = useState(true)
@@ -123,6 +125,17 @@ export default function Dashboard() {
       console.error("خطأ أثناء تشغيل الصوت:", e);
     }
   };
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
+    if (!user) {
+      router.push("/login")
+    } else {
+      setLoading(false)
+    }
+  })
+
+  return () => unsubscribe()
+}, [router])
 
   useEffect(() => {
     setIsMounted(true);
@@ -230,6 +243,9 @@ export default function Dashboard() {
       time: date.toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" }),
     }
   }
+  if (loading) {
+  return <div>جاري التحقق...</div>
+}
 
   return (
     <div className="flex min-h-screen bg-background">
